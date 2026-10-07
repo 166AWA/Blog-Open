@@ -22,7 +22,7 @@ jobs:
 
       # 仓库只提供 pnpm-lock.yaml，必须用 pnpm 才能复现依赖版本。
       # 之前用 npm install，会直接忽略锁文件、按 semver 拉最新版。
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9.6.0
 
