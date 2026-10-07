@@ -1,0 +1,19 @@
+# 统一换行符：仓库内一律存 LF，避免 Windows/Linux 之间来回提交产生
+# 整文件 diff，也避免编辑器把文件写成 CRLF。
+* text=auto eol=lf
+
+# 这些是二进制文件，禁止 Git 做换行符转换与文本 diff
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.ttf  binary
+*.woff binary
+*.woff2 binary
+*.zip  binary
+
+# 语言统计：把构建产物排除在 GitHub 语言占比之外
+dist/** linguist-generated=true
+pnpm-lock.yaml linguist-generated=true

@@ -1,0 +1,9 @@
+{
+  // Cloudflare Pages / Workers 静态资源部署配置
+  // name 改成你自己的项目名
+  "name": "my-astro-blog",
+  "compatibility_date": "2025-11-22",
+  "assets": {
+    "directory": "./dist"
+  }
+}

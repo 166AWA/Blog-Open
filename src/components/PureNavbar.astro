@@ -1,0 +1,515 @@
+---
+// ============================================================
+// PureNavbar.astro — 独立导航栏组件
+// 视觉与交互复刻自 astro-pure 的 Header.astro
+//   （/mnt/iscsi/仓库/astro-theme-pure/node_modules/astro-pure/components/basic/Header.astro）
+// 已去除 astro-pure / UnoCSS 依赖，改为适配 astro-theme-reimu 环境：
+//   - 菜单数据来自 reimu 的 MENU 配置（utils/config）+ i18n
+//   - 图标用 astro-icon（fa6-solid）
+//   - 主题按钮接入 reimu 的 localStorage + data-theme + theme-set 机制
+//   - 搜索按钮直接触发 reimu 的搜索浮层（不依赖被替换的 #header-nav）
+// 使用方法：复制到 reimu 的 src/components/ 下，替换 Header.astro 中的
+//   <div id="header-nav">...</div> 区块（详见文件尾部注释与回复说明）。
+// ============================================================
+
+import { Icon } from "astro-icon/components";
+
+import { __ } from "../utils/i18n";
+import { SITE, MENU, TRIANGLE_BADGE } from "../utils/config";
+import { urlFor } from "../utils/urlFor";
+
+type Props = {
+  title?: string; // 品牌名，默认 SITE.title
+  menu?: { name: string; url: string }[]; // 菜单项，默认 reimu MENU 配置
+};
+
+const { title = SITE.title, menu = MENU } = Astro.props;
+---
+
+{/* 顶栏：sticky 悬浮，滚动时收缩（not-top）、向下滚动隐藏（data-show=false） */}
+<nav
+  id="pure-navbar"
+  class="pure-navbar"
+  aria-label="Navigation"
+  data-show="true"
+>
+  {/* 品牌区 */}
+  <a class="brand" href={urlFor("/")} aria-label="Brand">
+    {title}
+  </a>
+
+  <div class="pure-navbar-right">
+    {/* 菜单区（移动端折叠为下拉展开） */}
+    <div id="navExpand" class="nav-expand">
+      <div class="nav-links">
+        {menu.map((item) => (
+          <a class="nav-link" href={urlFor(item.url)} aria-label="Nav menu item">
+            {__(item.name)}
+          </a>
+        ))}
+        {/* 图标操作区：RSS + 搜索（搜索触发 reimu 搜索浮层） */}
+        <div class="nav-actions">
+          <a
+            class="nav-icon-btn"
+            href={urlFor("rss.xml")}
+            title="RSS"
+            aria-label="RSS"
+          >
+            <Icon name="fa6-solid:rss" class="nav-icon-svg" />
+          </a>
+          <button
+            type="button"
+            id="pure-search"
+            class="nav-icon-btn"
+            title="Search"
+            aria-label="Search"
+          >
+            <Icon name="fa6-solid:magnifying-glass" class="nav-icon-svg" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* 按钮组：主题三态 + 移动端汉堡 */}
+    <div class="nav-buttons">
+      <button
+        type="button"
+        id="pure-theme"
+        class="nav-icon-btn"
+        aria-label="Toggle theme"
+      >
+        <Icon class="theme-icon light" name="fa6-solid:sun" />
+        <Icon class="theme-icon dark" name="fa6-solid:moon" />
+      </button>
+      <button
+        type="button"
+        id="pure-menu"
+        class="nav-icon-btn menu-btn"
+        aria-label="Menu"
+      >
+        <Icon name="fa6-solid:bars" class="nav-icon-svg" />
+      </button>
+    </div>
+  </div>
+
+  {/* 可选：右上角三角形角标（config.triangle_badge 控制，原属 #header-nav 区块） */}
+  {
+    TRIANGLE_BADGE.enable && (
+      <a
+        href={TRIANGLE_BADGE.link}
+        class="triangle-badge"
+        title={TRIANGLE_BADGE.type}
+        target="_blank"
+        rel="noopener nofollow noreferrer"
+      >
+        <Icon
+          name={`fa6-brands:${TRIANGLE_BADGE.type}`}
+          class="triangle-badge-icon"
+        />
+      </a>
+    )
+  }
+</nav>
+
+{/* 立即同步主题按钮图标状态（防止闪烁；reimu 的 ThemeScript 已处理 html data-theme） */}
+{/* 纯两态：仅显示 light/dark 图标。首次无 localStorage 时跟随系统并归一到 sun/moon。 */}
+<script is:inline>
+  (() => {
+    const btn = document.getElementById("pure-theme");
+    if (!btn) return;
+    const THEMES = ["light", "dark", "auto"]; // 兼容旧存储值
+    let theme = "auto";
+    try {
+      const raw = localStorage.getItem("theme");
+      if (raw) {
+        const t = JSON.parse(raw);
+        if (THEMES.includes(t)) theme = t;
+      }
+    } catch {}
+    // auto → 归一为当前系统明暗（两态按钮只显示对应的 sun/moon）
+    if (theme === "auto") {
+      theme = window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light";
+    }
+    btn.dataset.theme = theme;
+  })();
+</script>
+
+<script>
+  // ===== 导航栏客户端初始化 =====
+  // reimu 启用了 ClientRouter（View Transitions）：点击站内链接是客户端导航，
+  // 导航后 DOM 全新、内联脚本不会自动重新执行，所以必须用 astro:page-load
+  // 保证「首次加载」与「每次导航后」都重新绑定（与 SidebarScript/mermaid 的做法一致）。
+  // dataset.bound 标志防止同一 DOM 被重复初始化。
+  declare global {
+    interface Window {
+      __pureNavbarScrollHandler?: () => void;
+    }
+  }
+
+  function setupPureNavbar() {
+    const navbar = document.getElementById("pure-navbar");
+    if (!navbar || navbar.dataset.bound === "true") return;
+    navbar.dataset.bound = "true";
+
+    // ===== 滚动行为：not-top 收缩 + 向下滚隐藏 =====
+    // handler 挂到 window 上：模块作用域在每次导航后会重置，
+    // 只有存 window 才能在下一次初始化时移除旧监听，避免累积泄漏
+    // 方向判定带防抖：避免真实滚动中微小抖动导致 data-show 高频翻转，
+    // 出现"没有动画直接跳回原位"的现象。
+    const oldHandler = window.__pureNavbarScrollHandler;
+    if (oldHandler) window.removeEventListener("scroll", oldHandler);
+    let preScrollY = window.scrollY;
+    let scrollDir = 0; // 1=down, -1=up, 0=unknown
+    let dirHeld = 0; // 连续同方向滚动的累计距离
+    const SHOW_AT_TOP = 350; // 页面顶部始终显示
+    const HIDE_NEED = 80; // 需要连续向下滚超过此距离才隐藏
+    const SHOW_NEED = 40; // 需要连续向上滚超过此距离才显示
+    const scrollHandler = () => {
+      // 保留 window.diffY 全局（reimu 原 Header 脚本提供，SidebarScript 依赖它判断滚动方向）
+      window.diffY = window.scrollY - preScrollY;
+      navbar.classList.toggle("not-top", window.scrollY > 20);
+      const delta = window.scrollY - preScrollY;
+      preScrollY = window.scrollY;
+
+      const dir = delta > 0 ? 1 : delta < 0 ? -1 : 0;
+      if (dir !== 0) {
+        if (dir !== scrollDir) {
+          // 方向变化：重置为本次 delta 作为新方向起点
+          scrollDir = dir;
+          dirHeld = Math.abs(delta);
+        } else {
+          // 同方向：继续累计
+          dirHeld += Math.abs(delta);
+        }
+      }
+
+      // 状态机：只有满足明确条件才切换，否则保持当前显示状态（防抖）
+      let show = navbar.dataset.show === "true";
+      if (window.scrollY < SHOW_AT_TOP) {
+        show = true; // 页面顶部始终显示
+      } else if (scrollDir === 1 && dirHeld >= HIDE_NEED) {
+        show = false; // 连续向下滚足够 → 隐藏
+      } else if (scrollDir === -1 && dirHeld >= SHOW_NEED) {
+        show = true; // 连续向上滚足够 → 显示
+      }
+      navbar.dataset.show = show.toString();
+    };
+    window.__pureNavbarScrollHandler = scrollHandler;
+    window.addEventListener("scroll", scrollHandler);
+
+    // ===== 主题切换（纯两态：light ↔ dark；首次跟随系统） =====
+    const themeBtn = document.getElementById("pure-theme") as HTMLElement;
+    const THEME_CYCLE = ["light", "dark"];
+
+    function readTheme(): string {
+      try {
+        const raw = localStorage.getItem("theme");
+        if (!raw) return "light";
+        const t = JSON.parse(raw);
+        // 兼容旧值：auto → 归一为当前系统明暗
+        if (t === "auto") {
+          return window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light";
+        }
+        return THEME_CYCLE.includes(t) ? t : "light";
+      } catch {
+        return "light";
+      }
+    }
+
+    function applyTheme(theme: string) {
+      const dark =
+        theme === "dark" ||
+        (theme === "auto" &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches);
+      if (dark) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      } else {
+        document.documentElement.removeAttribute("data-theme");
+      }
+      document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      // 通知 mermaid / Expressive Code 等外部库换肤（reimu 既有事件）
+      document.body.dispatchEvent(
+        new CustomEvent("theme-set", { detail: { theme } })
+      );
+    }
+
+    themeBtn?.addEventListener("click", () => {
+      const current = readTheme();
+      const next = THEME_CYCLE[(THEME_CYCLE.indexOf(current) + 1) % 2];
+      try {
+        localStorage.setItem("theme", JSON.stringify(next)); // 隐私模式等场景可能抛错
+      } catch {}
+      themeBtn.dataset.theme = next;
+      applyTheme(next);
+    });
+
+    // ===== 搜索：打开 reimu 的搜索浮层（popup/mask/reimu-search-input） =====
+    document.getElementById("pure-search")?.addEventListener("click", () => {
+      const scrollWidth =
+        window.innerWidth - document.documentElement.offsetWidth;
+      document.querySelector("#mask")?.classList.remove("hide");
+      document.body.style.overflow = "hidden";
+      document.querySelector(".popup")?.classList.add("show");
+      document.dispatchEvent(new CustomEvent("reimu-search-open"));
+      document
+        .getElementById("reimu-search-input")
+        ?.querySelector("input")
+        ?.focus();
+      document.documentElement.style.marginRight = scrollWidth + "px";
+    });
+
+    // ===== 移动端汉堡：展开/收起菜单 =====
+    document.getElementById("pure-menu")?.addEventListener("click", () => {
+      navbar.classList.toggle("expanded");
+    });
+  }
+
+  setupPureNavbar();
+  document.addEventListener("astro:page-load", setupPureNavbar);
+</script>
+
+<style>
+  /* 局部设计令牌：复用 reimu 的主题变量 */
+  .pure-navbar {
+    --nb-bg: color-mix(in srgb, var(--color-header-background) 82%, transparent);
+    --nb-border: color-mix(in srgb, var(--color-border) 70%, transparent);
+    --nb-shadow: 0 8px 32px rgb(0 0 0 / 0.12);
+    --nb-text: var(--color-default);
+
+    position: sticky;
+    top: 0.75rem;
+    z-index: 50;
+    margin: 0 auto 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    max-width: calc(100% - 2rem);
+    border-radius: 1.25rem;
+    /* 玻璃拟态悬浮胶囊：始终有半透明背景/细边框/柔和阴影/毛玻璃 */
+    border: 1px solid var(--nb-border);
+    background-color: var(--nb-bg);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    backdrop-filter: blur(16px) saturate(1.4);
+    box-shadow: var(--nb-shadow);
+    padding: 0.5rem 0.875rem;
+    color: var(--nb-text);
+    transition:
+      padding 0.3s,
+      transform 0.3s,
+      margin-inline 0.3s,
+      opacity 0.3s,
+      border 0.15s,
+      background-color 0.15s,
+      box-shadow 0.3s;
+  }
+
+  /* 滚动后：阴影加深、胶囊略缩，强化悬浮层次 */
+  .pure-navbar.not-top {
+    --nb-shadow: 0 12px 40px rgb(0 0 0 / 0.18);
+    border-color: var(--nb-border);
+    padding-block: 0.375rem;
+  }
+
+  /* 向下滚动时整体隐藏（仅在非展开态；向上滚即回弹） */
+  .pure-navbar[data-show="false"]:not(.expanded) {
+    transform: translateY(-6rem);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .pure-navbar[data-show="false"]:not(.expanded) * {
+    pointer-events: none;
+  }
+
+  .pure-navbar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* 品牌 */
+  .brand {
+    z-index: 30;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--nb-text);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 0.15s;
+  }
+  .brand:hover {
+    color: var(--red-1);
+  }
+
+  /* 菜单链接 */
+  .nav-links {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  @media (min-width: 641px) {
+    .nav-links {
+      flex-direction: row;
+    }
+  }
+  .nav-link {
+    width: 100%;
+    flex: none;
+    flex-grow: 1;
+    padding: 0.5rem 0;
+    text-align: right;
+    font-weight: 500;
+    color: var(--nb-text);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .nav-link:hover {
+    color: var(--red-1);
+  }
+  @media (min-width: 641px) {
+    .nav-link {
+      width: fit-content;
+      padding: 0.5rem 0.85rem;
+      border-radius: 0.625rem;
+    }
+    .nav-link:hover {
+      background: color-mix(in srgb, var(--color-wrap) 70%, transparent);
+    }
+  }
+
+  .nav-actions {
+    display: flex;
+    width: 100%;
+    flex-grow: 1;
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+  @media (min-width: 641px) {
+    .nav-actions {
+      width: fit-content;
+      gap: 0.5rem;
+    }
+  }
+
+  /* 图标按钮（搜索/主题/汉堡共用）：悬浮胶囊内的圆形玻璃按钮 */
+  .nav-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: content-box;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--nb-text);
+    cursor: pointer;
+    transition:
+      background-color 0.2s,
+      color 0.2s,
+      transform 0.2s,
+      border-color 0.2s;
+  }
+  .nav-icon-btn:hover {
+    background: color-mix(in srgb, var(--color-wrap) 80%, transparent);
+    border-color: var(--nb-border);
+    transform: translateY(-1px);
+  }
+  .nav-icon-btn:active {
+    transform: translateY(0) scale(0.96);
+  }
+
+  /* 汉堡按钮仅移动端显示 */
+  .menu-btn {
+    display: inline-flex;
+  }
+  @media (min-width: 641px) {
+    .menu-btn {
+      display: none;
+    }
+  }
+
+  .nav-icon-svg,
+  .theme-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  /* ===== 移动端菜单展开（grid 行高动画，复刻 pure） ===== */
+  #navExpand {
+    display: grid;
+  }
+  @media (max-width: 640px) {
+    #navExpand {
+      position: absolute;
+      inset-inline: 0;
+      top: 3.25rem;
+      grid-template-rows: 0fr;
+      opacity: 0;
+      transition:
+        opacity 0.3s,
+        padding 0.3s,
+        grid-template-rows 0.3s;
+    }
+    .pure-navbar.expanded #navExpand {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+    .pure-navbar.expanded #navExpand .nav-links {
+      padding: 0.5rem 0.625rem;
+      border-radius: 1rem;
+      background: var(--nb-bg);
+      border: 1px solid var(--nb-border);
+      box-shadow: var(--nb-shadow);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+    }
+  }
+
+  /* ===== 主题按钮两态图标显隐（仅 light/dark） ===== */
+  #pure-theme .theme-icon {
+    display: none;
+  }
+  #pure-theme[data-theme="light"] .light,
+  #pure-theme[data-theme="dark"] .dark {
+    display: inline-block;
+  }
+
+  /* ===== 三角形角标（移植自 reimu 原 #header-nav 样式） ===== */
+  .triangle-badge {
+    position: absolute;
+    top: -6px;
+    right: -26px;
+    transform: rotate(45deg);
+    width: 0;
+    height: 0;
+    border-left: 40px solid transparent;
+    border-right: 40px solid transparent;
+    border-bottom: 40px solid var(--red-2);
+    display: inline-block;
+    transition: 0.3s;
+  }
+  @media (max-width: 959px) {
+    .triangle-badge {
+      display: none;
+    }
+  }
+  .triangle-badge-icon {
+    position: absolute;
+    top: 12px;
+    left: -13px;
+    color: var(--color-header-background) !important;
+    font-size: 28px;
+    transition: 0.3s;
+  }
+</style>
+

@@ -1,0 +1,226 @@
+<script>
+  const $ = (selector: string) => document.querySelector(selector);
+  const $$ = (selector: string) => document.querySelectorAll(selector);
+
+  /**
+   * 安全解码 URL。
+   * 标题里带裸 `%`（例如「# 100% 完成」）时 decodeURI 会抛 URIError；
+   * 之前三处调用都没有 try/catch，一处抛错会让整个目录（TOC）点击交互失效。
+   */
+  const safeDecode = (value: string | null | undefined): string => {
+    if (!value) return "";
+    try {
+      return decodeURI(value);
+    } catch {
+      return value;
+    }
+  };
+
+  /** 把 href="#some-slug" 转成可用于 getElementById 的 id */
+  const idFromHref = (href: string | null | undefined): string =>
+    safeDecode(href).replace(/^#/, "");
+
+  const scrollIntoViewAndWait = (element: Element) => {
+    return new Promise<any>((resolve) => {
+      if ("onscrollend" in window) {
+        document.addEventListener("scrollend", resolve, { once: true });
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+          inline: "center",
+        });
+      } else {
+        element.scrollIntoView({ block: "center", inline: "center" });
+        resolve(null);
+      }
+    });
+  };
+
+  let cleanupFunctions: (() => void)[] = [];
+
+  function initSidebarToggle() {
+    const tocBtnHandler = function (this: HTMLElement) {
+      if (this.classList.contains("current")) return;
+      $$(".sidebar-toc-btn").forEach((el) => el.classList.add("current"));
+      $$(".sidebar-common-btn").forEach((el) => el.classList.remove("current"));
+      $$(".sidebar-toc-sidebar").forEach((el) => el.classList.remove("hidden"));
+      $$(".sidebar-common-sidebar").forEach((el) => el.classList.add("hidden"));
+    };
+
+    const commonBtnHandler = function (this: HTMLElement) {
+      if (this.classList.contains("current")) return;
+      $$(".sidebar-common-btn").forEach((el) => el.classList.add("current"));
+      $$(".sidebar-toc-btn").forEach((el) => el.classList.remove("current"));
+      $$(".sidebar-common-sidebar").forEach((el) =>
+        el.classList.remove("hidden")
+      );
+      $$(".sidebar-toc-sidebar").forEach((el) => el.classList.add("hidden"));
+    };
+
+    $$(".sidebar-toc-btn").forEach((btn) => {
+      btn.addEventListener("click", tocBtnHandler);
+      cleanupFunctions.push(() =>
+        btn.removeEventListener("click", tocBtnHandler)
+      );
+    });
+
+    $$(".sidebar-common-btn").forEach((btn) => {
+      btn.addEventListener("click", commonBtnHandler);
+      cleanupFunctions.push(() =>
+        btn.removeEventListener("click", commonBtnHandler)
+      );
+    });
+  }
+
+  function initTocScroll() {
+    const sidebar = $("#sidebar");
+    if (!sidebar) return;
+
+    // MobileNav 抽屉已移除，移动端无 TOC；仅桌面侧栏参与滚动追踪
+    const navItems = Array.from($$("#sidebar .sidebar-toc-wrapper li"));
+
+    if (!navItems.length) return;
+
+    let activeLock: number | null = null;
+
+    const anchorScroll = (event: Event, index: number) => {
+      event.preventDefault();
+      const target = document.getElementById(
+        idFromHref((event.currentTarget as HTMLAnchorElement).getAttribute("href"))
+      );
+      if (!target) return;
+      activeLock = index;
+      scrollIntoViewAndWait(target).then(() => {
+        activateNavByIndex(index);
+        activeLock = null;
+      });
+    };
+
+    const anchorClickHandlers = new Map<
+      HTMLAnchorElement,
+      (e: Event) => void
+    >();
+
+    const sections = [...navItems]
+      .map((element, index) => {
+        const link = element.querySelector("a.toc-link") as HTMLAnchorElement;
+        const handler = (e: Event) => anchorScroll(e, index);
+        if (link) {
+          link.addEventListener("click", handler);
+          anchorClickHandlers.set(link, handler);
+        }
+        const anchor = document.getElementById(
+          idFromHref(link?.getAttribute("href"))
+        );
+        if (!anchor) return null;
+        const alink = anchor.querySelector("a") as HTMLAnchorElement;
+        if (alink) {
+          const alinkHandler = (e: Event) => anchorScroll(e, index);
+          alink.addEventListener("click", alinkHandler);
+          anchorClickHandlers.set(alink, alinkHandler);
+        }
+        return anchor;
+      })
+      .filter(Boolean) as HTMLElement[];
+
+    const activateNavByIndex = (index: number) => {
+      const target = navItems[index];
+      if (!target || target.classList.contains("current")) return;
+
+      $$(".sidebar-toc-wrapper .active, .sidebar-toc-wrapper .current").forEach(
+        (el) => {
+          el.classList.remove("active", "current");
+        }
+      );
+
+      sections.forEach((el) => {
+        el.classList.remove("active");
+      });
+
+      target.classList.add("active", "current");
+      sections[index]?.classList.add("active");
+
+      let parent = target.parentNode as HTMLElement | null;
+      while (parent && !parent.matches(".sidebar-toc-sidebar")) {
+        if (parent.matches("li")) {
+          parent.classList.add("active");
+          const parentLink = document.getElementById(
+            idFromHref(parent.querySelector("a.toc-link")?.getAttribute("href"))
+          );
+          if (parentLink) {
+            parentLink.classList.add("active");
+          }
+        }
+        parent = parent.parentNode as HTMLElement | null;
+      }
+
+      const tocSidebar = $(".sidebar-toc-sidebar:not(.hidden)");
+      if (tocSidebar) {
+        const tocWrapper = $(".sidebar-toc-wrapper");
+        if (!tocWrapper) return;
+        tocWrapper.scrollTo({
+          top:
+            tocWrapper.scrollTop +
+            (target as HTMLElement).offsetTop -
+            (target as HTMLElement).offsetHeight / 2,
+          behavior: "smooth",
+        });
+      }
+    };
+
+    const findIndex = (entries: IntersectionObserverEntry[]) => {
+      let index = 0;
+      let entry = entries[index];
+
+      if (entry.boundingClientRect.top > 0) {
+        return sections.indexOf(entry.target as HTMLElement);
+      }
+      for (; index < entries.length; index++) {
+        if (entries[index].boundingClientRect.top <= 0) {
+          entry = entries[index];
+        } else {
+          break;
+        }
+      }
+      return sections.indexOf(entry.target as HTMLElement);
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const index = findIndex(entries) + (window.diffY > 0 ? 1 : 0);
+        if (activeLock === null) {
+          activateNavByIndex(index);
+        }
+      },
+      {
+        rootMargin: "0px 0px -100% 0px",
+        threshold: 0,
+      }
+    );
+
+    sections.forEach((element) => {
+      element && observer.observe(element);
+    });
+
+    cleanupFunctions.push(() => {
+      observer.disconnect();
+      anchorClickHandlers.forEach((handler, link) => {
+        link.removeEventListener("click", handler);
+      });
+    });
+  }
+
+  function cleanup() {
+    cleanupFunctions.forEach((fn) => fn());
+    cleanupFunctions = [];
+  }
+
+  function init() {
+    initSidebarToggle();
+    initTocScroll();
+  }
+
+  init();
+  document.addEventListener("astro:page-load", init);
+  document.addEventListener("astro:before-swap", cleanup);
+</script>

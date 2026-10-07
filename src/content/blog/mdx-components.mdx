@@ -1,0 +1,116 @@
+---
+title: MDX 组件演示
+description: 提示块、折叠面板、标签页、网格布局与图片墙的使用方法与效果。
+pubDate: 2024-01-03T16:00:00+08:00
+tags: ["示例", "MDX"]
+categories: ["开始"]
+---
+
+主题自带了一组 MDX 组件，可以在 `.mdx` 文章里按需引入。**注意：组件需要手动 import**，
+它们没有被全局注册，这样构建体积更小。
+
+## 提示块 AlertBlockquote
+
+`type` 可选 `info` / `warning` / `danger` / `tip` / `important`：
+
+import AlertBlockquote from "../../components/mdx/AlertBlockquote.astro";
+
+<AlertBlockquote type="info" title="普通信息">
+  这是一条普通提示。
+</AlertBlockquote>
+
+<AlertBlockquote type="warning">
+  这是一条警告，`title` 不填时默认显示类型名。
+</AlertBlockquote>
+
+<AlertBlockquote type="danger" title="危险操作">
+  删除文件前请先备份。
+</AlertBlockquote>
+
+<AlertBlockquote type="tip" title="小技巧">
+  用 `pnpm dev` 起本地服务，改完保存即热更新。
+</AlertBlockquote>
+
+## 折叠面板 Details
+
+适合放「点开才看」的长内容：
+
+import Details from "../../components/mdx/Details.astro";
+
+<Details summary="点我展开配置示例">
+  ```yaml
+  site:
+    title: 我的博客
+    author: Your Name
+  ```
+</Details>
+
+## 标签页 Tabs
+
+每个 `TabItem` 的 `title` 就是标签名，`Tabs` 的 `active` 指定默认选中第几个（从 1 开始）：
+
+import Tabs from "../../components/mdx/Tabs.astro";
+import TabItem from "../../components/mdx/TabItem.astro";
+
+<Tabs active={1}>
+  <TabItem title="pnpm">
+    ```bash
+    pnpm install
+    pnpm dev
+    ```
+  </TabItem>
+  <TabItem title="npm">
+    ```bash
+    npm install
+    npm run dev
+    ```
+  </TabItem>
+  <TabItem title="yarn">
+    ```bash
+    yarn
+    yarn dev
+    ```
+  </TabItem>
+</Tabs>
+
+> 本仓库只提供了 `pnpm-lock.yaml`，推荐用 pnpm 以复现依赖版本。
+
+## 网格布局 Grid / GridCell
+
+import Grid from "../../components/mdx/Grid.astro";
+import GridCell from "../../components/mdx/GridCell.astro";
+
+<Grid col={3}>
+  <GridCell>
+    **第一格**
+    固定三列布局。
+  </GridCell>
+  <GridCell>
+    **第二格**
+    手机上会自动变成单列。
+  </GridCell>
+  <GridCell>
+    **第三格**
+    由 `col` 控制列数。
+  </GridCell>
+</Grid>
+
+## 图片墙 Gallery
+
+把若干 `<img>` 放进 `Gallery`，脚本会自动计算行高并排成瀑布墙，点击可放大（PhotoSwipe）：
+
+import Gallery from "../../components/mdx/Gallery.astro";
+
+<Gallery>
+  <img src="/images/cover-1.webp" alt="示例图 1" />
+  <img src="/images/cover-2.webp" alt="示例图 2" />
+  <img src="/images/cover-3.webp" alt="示例图 3" />
+  <img src="/images/cover-4.webp" alt="示例图 4" />
+  <img src="/images/cover-5.webp" alt="示例图 5" />
+  <img src="/images/cover-6.webp" alt="示例图 6" />
+</Gallery>
+
+---
+
+其余组件（`FriendCard`、`FriendLinkCard`、`Link`、`TagRoulette`、`HeatMapCard`）位于
+`src/components/mdx/` 下，可参照上面同样的方式 `import` 后使用。

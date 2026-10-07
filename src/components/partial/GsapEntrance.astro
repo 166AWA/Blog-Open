@@ -1,0 +1,189 @@
+---
+// GsapEntrance.astro — 全局 GSAP 进场动画
+// 加载即播：导航栏从上滑入、侧栏从左滑入、内容卡片依次交错滑入
+// 兼容 ClientRouter(astro:page-load)、Vue 懒加载(MutationObserver)、
+// prefers-reduced-motion
+// 无需修改各页面模板：脚本按约定选择器自动匹配常见容器/卡片
+---
+<script>
+  import gsap from "gsap";
+
+  const NAV_SELECTOR = "#pure-navbar, .pure-navbar"; // 顶部悬浮胶囊
+  const SIDEBAR_SELECTOR = "#sidebar"; // 侧栏
+  // 单个内容卡片（每个文章/卡片独立动画，不是整个列表）
+  const CONTENT_SELECTOR = [
+    ".tl-item", // 首页文章时间轴项
+    ".post-wrap", // 文章列表卡片（.post-wrapper 是外层容器，不做整块动画）
+    ".archive-article", // 归档/标签页文章项
+    ".friend-card", // 友链卡片
+    ".friend-item-wrap", // 关于页友链卡片
+    ".link-section, .link-apply", // 友链页区块
+  ].join(",");
+  // 文章详情页正文：单独处理（更快 1.25x 进场动画）
+  const ARTICLE_SELECTOR = ".article";
+
+  let observer: MutationObserver | null = null;
+  let itemSeq = 0; // 全局递增序号，保证交错动画顺序稳定
+
+  function reduceMotionPref(): boolean {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function animateItems(items: HTMLElement[], speed = 1) {
+    if (items.length === 0 || reduceMotionPref()) return;
+    const duration = 0.85 / speed; // speed=1 标准；speed=1.25 更快
+    items.forEach((el) => {
+      // 跳过已动画过的（gsap 清除后打标记，避免重复触发）
+      if (el.dataset.gsapEntered === "true") return;
+      el.dataset.gsapEntered = "true";
+      // 每个卡片独立从左右滑动：右列从右(240px)、左列从左(-240px)
+      const fromX = el.classList.contains("right") ? 240 : -240;
+      gsap.fromTo(
+        el,
+        { x: fromX, opacity: 0 },
+        {
+          x: 0,
+          opacity: 1,
+          duration,
+          ease: "power3.out",
+          delay: 0.2 + itemSeq * 0.12, // 依次交错，节奏更明显
+          clearProps: "all",
+        }
+      );
+      itemSeq++;
+    });
+  }
+
+  // 文章详情页正文：从左滑入，1.25 倍速（更快更平滑）
+  function animateArticle() {
+    const article = document.querySelector<HTMLElement>(ARTICLE_SELECTOR);
+    if (!article || article.dataset.gsapEntered === "true" || reduceMotionPref()) return;
+    article.dataset.gsapEntered = "true";
+    // 解除 AOS 对文章正文的控制（aos-init/aos-animate），避免 opacity 冲突
+    article.classList.remove("aos-init", "aos-animate");
+    gsap.fromTo(
+      article,
+      { x: -240, opacity: 0 },
+      {
+        x: 0,
+        opacity: 1,
+        duration: 0.85 / 1.25, // ≈0.68s：1.25 倍速
+        ease: "power3.out",
+        delay: 0.2,
+        clearProps: "all",
+      }
+    );
+  }
+
+  // 首页时间轴卡片内的简介文字：从左右两侧向中间汇聚
+  // 日期从左侧、标题从右侧、摘要从两侧向中间，依次汇入
+  function animateTimelineInfo() {
+    if (reduceMotionPref()) return;
+    const infos = gsap.utils.toArray<HTMLElement>(".tl-item .tl-info");
+    infos.forEach((info, idx) => {
+      if (info.dataset.gsapInfoDone === "true") return;
+      info.dataset.gsapInfoDone = "true";
+      const date = info.querySelector<HTMLElement>(".tl-date");
+      const title = info.querySelector<HTMLElement>(".tl-title");
+      const excerpt = info.querySelector<HTMLElement>(".tl-excerpt");
+      const delay = 0.35 + idx * 0.12; // 在卡片滑入之后开始
+
+      // 日期：从左侧滑入
+      if (date) {
+        gsap.fromTo(
+          date,
+          { x: -60, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay, clearProps: "all" }
+        );
+      }
+      // 标题：从右侧滑入
+      if (title) {
+        gsap.fromTo(
+          title,
+          { x: 60, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.6, ease: "power3.out", delay: delay + 0.08, clearProps: "all" }
+        );
+      }
+      // 摘要：从两侧向中间汇聚（scaleX 0 → 1 从中心展开）
+      if (excerpt) {
+        gsap.fromTo(
+          excerpt,
+          { scaleX: 0.4, opacity: 0, transformOrigin: "center" },
+          { scaleX: 1, opacity: 1, duration: 0.7, ease: "power3.out", delay: delay + 0.16, clearProps: "all" }
+        );
+      }
+    });
+  }
+
+  function runEntrance() {
+    if (reduceMotionPref()) return; // 无障碍：用户偏好减弱动效时跳过
+
+    // ---- 1. 导航栏：从上滑入 ----
+    gsap.fromTo(
+      NAV_SELECTOR,
+      { y: -160, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.9, ease: "power3.out", clearProps: "all" }
+    );
+
+    // ---- 2. 侧栏：从左滑入 ----
+    gsap.fromTo(
+      SIDEBAR_SELECTOR,
+      { x: -140, opacity: 0 },
+      { x: 0, opacity: 1, duration: 0.8, ease: "power3.out", clearProps: "all" }
+    );
+
+    // ---- 3. 内容卡片：当前 DOM 中尚未动画的项依次交错滑入 ----
+    const items = gsap.utils.toArray<HTMLElement>(CONTENT_SELECTOR);
+    animateItems(items);
+
+    // ---- 3.5 首页简介文字：左右两侧向中间汇聚 ----
+    animateTimelineInfo();
+
+    // ---- 4. 文章详情页正文：从左滑入，1.25 倍速 ----
+    animateArticle();
+  }
+
+  // 监听 .tl-track（首页时间轴容器）的新增子项：
+  // Vue 分批懒加载会往里面插入新 .tl-item，需给新项补进场动画
+  function watchLazyContent() {
+    observer?.disconnect();
+    const track = document.querySelector(".tl-track");
+    if (!track) {
+      // Vue(client:load) 异步挂载：延迟重试，直到容器出现
+      setTimeout(watchLazyContent, 200);
+      return;
+    }
+    // 容器出现后：为已渲染的初始项补动画（Vue mount 可能晚于 page-load）
+    const initialItems = track.querySelectorAll<HTMLElement>(".tl-item");
+    animateItems([...initialItems]);
+    // 初始项的文字也做左右汇聚动画
+    animateTimelineInfo();
+
+    observer = new MutationObserver((mutations) => {
+      const added: HTMLElement[] = [];
+      for (const m of mutations) {
+        m.addedNodes.forEach((n) => {
+          if (n instanceof HTMLElement && n.matches?.(".tl-item")) {
+            added.push(n);
+          } else if (n instanceof HTMLElement) {
+            n.querySelectorAll?.(".tl-item").forEach((c) => added.push(c as HTMLElement));
+          }
+        });
+      }
+      if (added.length > 0) {
+        animateItems(added);
+        animateTimelineInfo(); // 新项的文字汇聚
+      }
+    });
+    observer.observe(track, { childList: true, subtree: true });
+  }
+
+  // 首次加载 + 每次客户端导航后重新执行（DOM 全新，旧动画随 DOM 释放）
+  runEntrance();
+  watchLazyContent();
+  document.addEventListener("astro:page-load", () => {
+    itemSeq = 0; // 新页面从 0 开始交错
+    runEntrance();
+    watchLazyContent();
+  });
+</script>

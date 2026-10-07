@@ -1,0 +1,89 @@
+---
+import { FOOTER, FIREWORK } from "../utils/config";
+import packageData from "../../package.json";
+const firework = FIREWORK;
+
+const copyright = String.raw`
+ ______     ______     __     __    __     __  __    
+/\  == \   /\  ___\   /\ \   /\ "-./  \   /\ \/\ \   
+\ \  __<   \ \  __\   \ \ \  \ \ \-./\ \  \ \ \_\ \  
+ \ \_\ \_\  \ \_____\  \ \_\  \ \_\ \ \_\  \ \_____\ 
+  \/_/ /_/   \/_____/   \/_/   \/_/  \/_/   \/_____/ 
+                                                  
+`
+---
+
+<!-- busuanzi -->
+{
+  FOOTER.busuanzi && 
+  <script>
+  document.addEventListener('astro:page-load', () => {
+    window.loadScript("https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js", "busuanzi-script");
+  })
+</script>
+}
+
+<!-- aos -->
+<script>
+  import AOS from "@reimujs/aos";
+  const aosInit = () => {
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    AOS.init({
+      duration: 1000,
+      easing: "ease",
+      once: true,
+      offset: 50,
+      disable: reduceMotion, // 减弱动效偏好：禁用 AOS 动画
+    });
+    // AOS 禁用后元素保持初始 opacity:0，需立即置为最终态
+    if (reduceMotion) {
+      document
+        .querySelectorAll("[data-aos]")
+        .forEach((el) => el.classList.add("aos-animate"));
+    }
+  };
+  aosInit();
+  document.addEventListener("astro:after-swap", aosInit);
+</script>
+<!-- ThemeToogle -->
+<!-- 主题初始化只在 ThemeScript.astro（<head> 内联，防首屏闪白）里做一次。
+     这里过去还抄了一份 initColorMode，属于重复实现，已删除。 -->
+<!-- Firework -->
+{firework && firework.enable && (
+  <>
+    <script>
+      function initFirework() {
+        const config = window.__FIREWORK_CONFIG__;
+        
+        if (config && config.enable) {
+          if (config.disable_on_mobile && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
+            return;
+          }
+          
+          import('mouse-firework').then((mod) => {
+            const fire = mod.default;
+            fire(config.options as Parameters<typeof fire>[0]);
+          }).catch((e) => {
+            console.warn('Failed to load mouse-firework', e);
+          });
+        }
+      }
+      
+      initFirework();
+      
+      document.addEventListener('astro:page-load', () => {
+        initFirework();
+      });
+    </script>
+    <script is:inline define:vars={{ firework }}>
+      window.__FIREWORK_CONFIG__ = firework;
+    </script>
+  </>
+)}
+<!-- Copyright -->
+<script is:inline define:vars={{ copyright, version: packageData.version }}>
+  console.log(String.raw`%c ${copyright}`,'color: #ff5252;')
+  console.log('%c Theme.Reimu v' + `${version}` + ' %c https://github.com/D-Sketon/astro-theme-reimu ', 'color: white; background: #ff5252; padding:5px 0;', 'padding:4px;border:1px solid #ff5252;')
+</script>

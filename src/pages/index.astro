@@ -1,0 +1,46 @@
+---
+// ============================================================
+// index.astro — 主页（Vue 落地页）
+// 导航栏与 Footer 复用 BaseLayout（与全站一致），主体内容由
+// HomePage.vue（client:load）渲染；数据在服务端取好经 props 传入
+// ============================================================
+import { getCollection } from "astro:content";
+
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { SITE, BANNER } from "../utils/config";
+import { urlFor } from "../utils/urlFor";
+import { formatDate } from "../utils/formatDate";
+import { resolveCover, postExcerptHtml } from "../utils/postMeta";
+import Footer from "../components/Footer.astro";
+import HeaderTitle from "../components/partial/HeaderTitle.astro";
+import HeaderSubTitle from "../components/partial/HeaderSubTitle.astro";
+import HomePage from "../components/HomePage.vue";
+
+// 全部文章（按发布时间倒序，最新在前；时间轴在客户端分批懒加载渲染）
+const posts = await getCollection("blog");
+const postItems = posts
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .map((post) => ({
+    title: post.data.title,
+    url: urlFor(`blog/${post.id}`),
+    date: formatDate(post.data.pubDate),
+    // 封面：frontmatter cover > covers.ts 随机图
+    cover: urlFor(resolveCover(post.data.cover, post.id, BANNER)),
+    // 简介：支持 markdown 语法但跳过图片（HTML 字符串）
+    excerptHtml: postExcerptHtml(post.data.excerpt || "", post.body || ""),
+  }));
+---
+
+<BaseLayout title={SITE.title} description={SITE.description}>
+  <!-- Header：与全站一致的标题区 -->
+  <HeaderTitle title={SITE.title} url={urlFor("/")} slot="header" />
+  {
+    SITE.subtitle && (
+      <HeaderSubTitle subtitle={SITE.subtitle} url={urlFor("/")} slot="header" />
+    )
+  }
+  <!-- Content：Vue 主页主体（文章时间轴） -->
+  <HomePage client:load posts={postItems} />
+  <!-- Footer：与全站一致的尾部 -->
+  <Footer slot="footer" />
+</BaseLayout>

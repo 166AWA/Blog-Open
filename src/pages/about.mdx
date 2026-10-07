@@ -1,0 +1,23 @@
+---
+layout: ../layouts/MarkdownLayout.astro
+title: About
+pubDate: "2024-01-01"
+---
+
+## 关于本站
+
+这里写你的自我介绍、建站初衷、联系方式等等。下面是一段示例文案，直接替换成你自己的内容即可。
+
+- **站名**：我的博客
+- **站长**：Your Name
+- **主题**：基于 [astro-theme-reimu](https://github.com/D-Sketon/astro-theme-reimu) 二次开发
+
+想改这一页，编辑 `src/pages/about.mdx`；站点名称等全局信息在 `src/config.ts` 的 `site` 段。
+
+## 友情链接
+
+下面的卡片会自动读取 `src/config.ts` 里的 `friend` 数组：
+
+import FriendCard from "../components/mdx/FriendCard.astro";
+
+<FriendCard />

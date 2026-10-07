@@ -1,0 +1,47 @@
+---
+import { getActiveCommentSystem } from "../../utils/comments";
+
+import ValineComment from "./comment/ValineComment.astro";
+import WalineComment from "./comment/WalineComment.astro";
+import GitalkComment from "./comment/GitalkComment.astro";
+import GiscusComment from "./comment/GiscusComment.astro";
+import UtterancesComment from "./comment/UtterancesComment.astro";
+import TwikooComment from "./comment/TwikooComment.astro";
+import DisqusComment from "./comment/DisqusComment.astro";
+
+type Props = {
+  /** 文章 frontmatter 的 comment 字段；false 表示这篇文章关闭评论 */
+  comment: boolean;
+};
+
+const { comment } = Astro.props;
+
+// 只渲染真正配置完整的那一个系统（判断逻辑见 utils/comments.ts）
+const activeSystem = getActiveCommentSystem();
+const show = comment && activeSystem !== null;
+---
+
+{show && activeSystem === "valine" && <ValineComment />}
+{show && activeSystem === "waline" && <WalineComment />}
+{show && activeSystem === "gitalk" && <GitalkComment />}
+{show && activeSystem === "giscus" && <GiscusComment />}
+{show && activeSystem === "utterances" && <UtterancesComment />}
+{show && activeSystem === "twikoo" && <TwikooComment />}
+{show && activeSystem === "disqus" && <DisqusComment />}
+
+<style lang="stylus" is:global>
+  #comments {
+    background: var(--color-wrap);
+    padding: 20px 36px;
+    border-radius: 12px;
+    margin: 12px 0;
+
+    @media screen and (max-width: 767px) {
+      padding: 20px 16px;
+    }
+
+    a {
+      color: var(--color-link);
+    }
+  }
+</style>

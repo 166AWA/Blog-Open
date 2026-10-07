@@ -1,0 +1,136 @@
+---
+// ============================================================
+// Header.astro — 全站页头组件（导航栏 + 横幅图 + 标题区）
+// 被 BaseLayout.astro 引用（BaseLayout.astro:12, 69-71）
+// 职责：导航栏（PureNavbar，复刻 astro-pure 风格）+
+//       文章封面/站点 banner 的响应式展示 + 搜索浮层（SearchBox）
+// ============================================================
+
+// 主题集中配置（来自 src/config.ts，经 utils/config.ts 类型化导出）
+import { SITE, BANNER, BANNER_SRCSET } from "../utils/config";
+// 处理站内链接（拼接 BASE_URL 前缀）
+import { urlFor } from "../utils/urlFor";
+
+// 导航栏组件（复刻 astro-pure 风格：菜单/RSS/搜索/主题/移动端下拉，替代原 #header-nav 区块）
+import PureNavbar from "./PureNavbar.astro";
+// 搜索框本体（client:idle 空闲时加载）
+import SearchBox from "./partial/SearchBox";
+
+// Props 类型定义：BaseLayout 传入
+type Props = {
+  title?: string; // 页面标题（用于 banner 图 alt 文案）
+  cover?: string; // 文章封面图路径（文章页传入；无封面时回退到站点 BANNER）
+};
+
+// 解构 props，title 缺省时用站点标题
+const { title = SITE.title, cover } = Astro.props;
+---
+
+{/* ============ 导航栏（PureNavbar：菜单/RSS/搜索/主题/移动端下拉，复刻 astro-pure 风格） ============ */}
+<PureNavbar />
+
+{/* ============ 横幅区：封面图优先，其次响应式 banner，最后默认 banner ============ */}
+<header id="header">
+  {
+    cover ? (
+      // 文章页：用文章 frontmatter 里的 cover 图
+      <img src={urlFor(cover)} alt={title} fetchpriority="high" />
+    ) : BANNER_SRCSET.enable ? (
+      // 站点页：启用 srcset 时用 <picture> 按视口宽度切换不同尺寸的图
+      <picture style="user-select: none;">
+        {BANNER_SRCSET.srcset.map((source) => (
+          <source media={source.media} srcset={urlFor(source.src)} />
+        ))}
+        <img src={urlFor(BANNER)} alt={title} fetchpriority="high" />
+      </picture>
+    ) : (
+      // 站点页：未启用 srcset 时直接用默认 banner
+      <img src={urlFor(BANNER)} alt={title} fetchpriority="high" />
+    )
+  }
+
+  {/* 标题/副标题容器：内容由父组件通过 slot="header" 注入（如 HeaderTitle / HeaderSubTitle） */}
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <slot />
+    </div>
+  </div>
+</header>
+
+{/* 本地搜索框：client:idle 空闲时再加载，避免阻塞首屏；数据来自 /search.json（pages/search.json.ts 生成） */}
+<SearchBox
+  client:idle
+  searchIndexUrl={urlFor("search.json")}
+  postUrlPrefix={urlFor("blog")}
+  imageUrl={urlFor("images/reimu.png")}
+/>
+
+
+<style lang="stylus">
+  // ========== 横幅容器 ==========
+  #header {
+    min-height: 400px;
+    height: 35vh;             // 占视口 35% 高（且不低于 400px）
+    position: relative;
+
+    img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 180%;           // 图片比容器高，配合 mask 渐变做顶部淡出
+      z-index: -2;            // 垫在文字下层
+      user-select: none;
+      display: block;
+      object-fit: cover;      // 裁剪铺满
+      transition: 0.3s;
+      // 顶部 → 透明的线性渐变遮罩，让图"溶入"页面背景
+      -webkit-mask: linear-gradient(to top, transparent, #fff 50%);
+      mask: linear-gradient(to top, transparent, #fff 50%);
+
+      // 响应式：视口越窄图片高度占比越小（露出更多标题区域）
+      @media screen and (max-width: 959px) {
+        height: 120%;
+      }
+
+      @media screen and (max-width: 767px) {
+        height: 100%;
+      }
+    }
+  }
+
+  // ========== 标题外层 ==========
+  #header-outer {
+    height: 100%;
+    position: relative;
+    max-width: 100%;
+  }
+
+  // ========== 标题区：垂直居中 + 模糊淡入动画 ==========
+  #header-title {
+    font-weight: 700;
+    text-align: center;
+    position: absolute;
+    top: 50%;
+    margin: 40px * -0.5 2.5% 0; // 用 40px 的一半负边距做近似垂直居中补偿
+    width: 95%;
+    opacity: 0;
+    filter: blur(8px);          // 初始模糊
+    will-change: transform, opacity, filter;
+    animation: fade-in-blur 800ms ease-out 200ms forwards; // 延迟 200ms 后淡入
+  }
+
+  // 模糊淡入关键帧
+  @keyframes fade-in-blur {
+    0% {
+      opacity: 0;
+      filter: blur(10px);
+    }
+
+    100% {
+      opacity: 1;
+      filter: blur(0);
+    }
+  }
+
+</style>

@@ -1,0 +1,150 @@
+---
+// link.astro — 独立友链页面
+// 展示 src/config.ts 的 friend 配置 + 申请格式说明
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Footer from "../components/Footer.astro";
+import HeaderTitle from "../components/partial/HeaderTitle.astro";
+import HeaderSubTitle from "../components/partial/HeaderSubTitle.astro";
+import FriendLinkCard from "../components/mdx/FriendLinkCard.astro";
+import { __ } from "../utils/i18n";
+import { urlFor } from "../utils/urlFor";
+import { SITE } from "../utils/config";
+---
+
+<BaseLayout title={__("friend")}>
+  <!-- Header -->
+  <HeaderTitle title={__("friend")} url={urlFor("link")} slot="header" />
+  <HeaderSubTitle subtitle={SITE.subtitle ?? ""} url={urlFor("link")} slot="header" />
+
+  <!-- Content -->
+  <section id="main" aria-label="Main content">
+    <div class="link-page">
+      <div class="link-hero" data-aos="fade-up">
+        <div class="link-hero-icon" aria-hidden="true">🔗</div>
+        <h2 class="link-hero-title">友情链接</h2>
+        <p class="link-hero-desc">
+          交换友链，一起记录技术、生活与热爱。申请前请先在本站留下链接，格式见下。
+        </p>
+      </div>
+
+      <div class="link-section" data-aos="fade-up">
+        <FriendLinkCard />
+      </div>
+
+      <div class="link-apply" data-aos="fade-up">
+        <h3 class="link-apply-title">📮 申请友链</h3>
+        <p class="link-apply-tip">按以下格式提供信息，即可申请交换友链：</p>
+        <pre class="link-apply-code"><code>{`- name: 你的站点名
+  url: https://你的网址/
+  desc: 一句话描述
+  avatar: https://你的头像地址/icon.png`}</code></pre>
+        <p class="link-apply-note">
+          请先添加本站：<strong>{SITE.title}</strong>（{new URL(urlFor("/"), Astro.site).href}
+          ）。申请后我会尽快审核并添加。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <Footer slot="footer" />
+</BaseLayout>
+
+<style lang="stylus">
+  .link-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .link-hero {
+    background: linear-gradient(
+      135deg,
+      rgba(7, 189, 255, 0.12),
+      var(--color-wrap)
+    );
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
+    padding: 28px 24px;
+    text-align: center;
+  }
+
+  .link-hero-icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+  }
+
+  .link-hero-title {
+    margin: 0 0 8px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--red-1);
+  }
+
+  .link-hero-desc {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--color-default);
+    opacity: 0.85;
+  }
+
+  .link-section {
+    background: var(--color-wrap);
+    border-radius: 20px;
+    padding: 20px;
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-card);
+  }
+
+  .link-apply {
+    background: var(--color-wrap);
+    border-radius: 20px;
+    padding: 24px;
+    border: 1px dashed var(--red-1);
+  }
+
+  .link-apply-title {
+    margin: 0 0 10px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-default);
+  }
+
+  .link-apply-tip {
+    margin: 0 0 12px;
+    font-size: 14px;
+    color: var(--color-default);
+    opacity: 0.85;
+  }
+
+  .link-apply-code {
+    margin: 0 0 12px;
+    padding: 14px 16px;
+    background: rgba(7, 189, 255, 0.06);
+    border-radius: 10px;
+    border: 1px solid var(--color-border);
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--color-default);
+  }
+
+  .link-apply-note {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--color-default);
+    opacity: 0.8;
+
+    strong {
+      color: var(--red-1);
+    }
+  }
+
+  @media screen and (max-width: 767px) {
+    .link-hero {
+      padding: 20px 16px;
+    }
+  }
+</style>

@@ -1,0 +1,221 @@
+/* ============================================================
+   主题 CSS 变量不在这里定义！
+   所有颜色都集中在 src/config.ts 的 theme 段，
+   由 src/utils/theme.ts 编译成 :root / [data-theme="dark"] 两段变量，
+   并在 src/layouts/BaseLayout.astro 注入到 <head>。
+   要换配色请改 config.ts，不要往这个文件里加颜色变量。
+   ============================================================ */
+
+/* fix astro bug https://github.com/withastro/astro/issues/9521 */
+svg:not(:root).svg-inline--fa, svg:not(:host).svg-inline--fa {
+  overflow: visible;
+  box-sizing: content-box;
+}
+.svg-inline--fa {
+  display: var(--fa-display, inline-block);
+  height: 1em;
+  overflow: visible;
+  vertical-align: -0.125em;
+}
+
+html,
+body,
+div,
+span,
+applet,
+object,
+iframe,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+a,
+abbr,
+acronym,
+address,
+big,
+cite,
+code,
+del,
+dfn,
+em,
+img,
+ins,
+kbd,
+q,
+s,
+samp,
+small,
+strike,
+strong,
+sub,
+sup,
+tt,
+var,
+dl,
+dt,
+dd,
+ol,
+ul,
+li,
+fieldset,
+form,
+label,
+legend,
+table,
+caption,
+tbody,
+tfoot,
+thead,
+tr,
+th,
+td {
+  font-weight: inherit;
+  font-style: inherit;
+  vertical-align: baseline;
+  border: 0;
+  outline: 0;
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: 100%;
+}
+
+ol,
+ul {
+  list-style: none;
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  vertical-align: middle;
+}
+
+caption,
+th,
+td {
+  text-align: left;
+  vertical-align: middle;
+  font-weight: 400;
+}
+
+a img {
+  border: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 700;
+}
+
+input,
+button {
+  margin: 0;
+  padding: 0;
+}
+
+input::-moz-focus-inner {
+  border: 0;
+  padding: 0;
+}
+
+button::-moz-focus-inner {
+  border: 0;
+  padding: 0;
+}
+
+body {
+  width: 100%;
+  background: var(--color-background);
+  -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  text-size-adjust: 100%;
+  transition: background 1s;
+  text-autospace: normal;
+  color: var(--color-default);
+  font-family: 'LXGW WenKai Screen', -apple-system, PingFang SC,
+    Microsoft YaHei, sans-serif;
+  transition: 0.3s;
+  line-height: 1;
+}
+
+::selection {
+  background: var(--red-1);
+  color: #fff;
+}
+
+#mask {
+  z-index: 1000;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  opacity: 1;
+  transition: 0.3s;
+
+  &.hide {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.mobile-nav-on {
+  overflow: hidden !important;
+}
+
+#main {
+  flex: 1;
+  padding: 0 20px;
+  max-width: 100%;
+  box-sizing: border-box;
+
+  @media screen and (max-width: 959px) {
+    min-width: 100%;
+  }
+
+  @media screen and (max-width: 767px) {
+    padding: 0 16px;
+  }
+}
+
+[data-theme="dark"] {
+  ::-webkit-scrollbar,
+  ::-webkit-scrollbar-track {
+    background-color: #616161;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background-color: #f5f5f5;
+}
+
+::-webkit-scrollbar-track {
+  border-radius: 10px;
+  background-color: #f5f5f5;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background-color: var(--red-3);
+}
+
+[data-aos^="fade"],
+[data-aos^="zoom"] {
+  transition-property: all !important;
+}

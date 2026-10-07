@@ -1,0 +1,14 @@
+{
+  // 腾讯云 EdgeOne Pages / ESA 部署配置
+  // name 改成你自己的项目名
+  "name": "my-astro-blog",
+  "installCommand": "pnpm install && bash scripts/ensure-ffi.sh",
+  "buildCommand": "pnpm run build",
+  "assets": {
+    "directory": "./dist",
+    // 本站是静态多页站点，必须用默认的 404 策略。
+    // 设成 "singlePageApplication" 会把所有未知路径用首页 200 返回，
+    // 导致 src/pages/404.astro 永远不生效（软 404，影响 SEO）。
+    "notFoundStrategy": "404.html"
+  }
+}

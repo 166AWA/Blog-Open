@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      # 每周检查一次，安全更新能更快进来
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      # 把补丁/小版本更新合并成一个 PR，减少噪音
+      minor-and-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

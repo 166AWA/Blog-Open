@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # 与 package.json 的 engines.node (>=22.12.0) 保持一致。
+        # 不要加 20.x：pnpm 会在安装阶段直接因 engines 不满足而失败。
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: ["22.x", "24.x"]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 仓库只提供 pnpm-lock.yaml，必须用 pnpm 才能复现依赖版本。
+      # 之前用 npm install，会直接忽略锁文件、按 semver 拉最新版。
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.6.0
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      # 摘要 HTML 的净化回归测试（防止 XSS 防护被改坏）
+      - name: Test
+        run: pnpm run test
+
+      - name: Build
+        run: pnpm run build

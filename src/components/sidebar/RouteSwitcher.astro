@@ -1,0 +1,200 @@
+---
+// RouteSwitcher.astro — 侧栏「线路切换」栏
+// 完整栏样式（与分类/标签等 widget 一致）：栏头 + 线路列表
+// 点击线路在当前页跳转（非新标签）：跳到目标线路的**首页**（跨线路内容相同，
+// 直接切域名即可；保留路径在静态部署下不可靠——各线路路径结构可能不同）。
+// 当前线路高亮在**客户端**判断（window.location.origin），静态部署也正确。
+import { Icon } from "astro-icon/components";
+
+import { ROUTES } from "../../utils/config";
+---
+
+{
+  ROUTES.length > 0 && (
+    <div class="widget-wrapper">
+      <div class="widget-wrap" data-aos="fade-up">
+        <h3 class="widget-title">🌐 线路切换</h3>
+        <div class="route-list">
+          {
+            ROUTES.map((route) => (
+              <button
+                type="button"
+                class="route-item"
+                title={route.desc || route.name}
+                data-route-url={route.url}
+              >
+                <span class="route-icon" aria-hidden="true">
+                  <Icon
+                    name={route.icon || "fa6-solid:link"}
+                    size={14}
+                  />
+                </span>
+                <span class="route-name">{route.name}</span>
+                <span class="route-desc">{route.desc || ""}</span>
+                <span class="route-current" aria-hidden="true">➜</span>
+              </button>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  )
+}
+
+<script>
+  // 客户端逻辑：高亮当前线路 + 点击跳转
+  function setupRouteSwitcher() {
+    const list = document.querySelector(".route-list");
+    if (!list || list.dataset.bound === "true") return;
+    list.dataset.bound = "true";
+
+    const items = list.querySelectorAll<HTMLElement>(".route-item");
+    const currentOrigin = window.location.origin;
+
+    // 1) 高亮当前线路：当前访问 origin 与线路 URL origin 匹配
+    items.forEach((btn) => {
+      const routeUrl = btn.dataset.routeUrl || "";
+      let isActive = false;
+      try {
+        const target = new URL(routeUrl, currentOrigin);
+        isActive = target.origin === currentOrigin;
+      } catch {
+        isActive = false;
+      }
+      btn.classList.toggle("active", isActive);
+      // 当前线路：隐藏箭头标记（高亮已表示），并禁用点击
+      const arrow = btn.querySelector<HTMLElement>(".route-current");
+      if (arrow) arrow.style.display = isActive ? "none" : "";
+      if (isActive) btn.setAttribute("aria-disabled", "true");
+    });
+
+    // 2) 点击跳转：跳到目标线路首页（非新标签）
+    items.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.classList.contains("active")) return; // 当前线路不跳
+        const base = btn.dataset.routeUrl || "";
+        if (!base) return;
+        let url: string;
+        try {
+          const target = new URL(base, currentOrigin);
+          url = target.origin; // 跳到目标线路首页
+        } catch {
+          url = base;
+        }
+        window.location.href = url; // 当前页跳转（非新标签）
+      });
+    });
+  }
+
+  // 首次 + 每次客户端导航后重新执行（ClientRouter DOM 全新）
+  setupRouteSwitcher();
+  document.addEventListener("astro:page-load", setupRouteSwitcher);
+</script>
+
+<style is:global>
+  /* 与分类/标签 widget 一致的栏样式 */
+  .route-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 2px;
+  }
+
+  .route-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--color-default, #444);
+    background: var(--color-wrap, #fff);
+    border: 1px solid var(--color-border, #e5e5e5);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+
+  .route-item:hover {
+    border-color: var(--red-1, #07bdff);
+    box-shadow: var(--shadow-card-hover, 0 4px 16px rgb(0 0 0 / 0.12));
+    transform: translateX(3px);
+  }
+
+  .route-item:active {
+    transform: translateX(3px) scale(0.99);
+  }
+
+  /* 当前线路高亮：主题蓝边框 + 浅蓝底 + 左侧光条 */
+  .route-item.active {
+    border-color: var(--red-1, #07bdff);
+    background: rgba(7, 189, 255, 0.1);
+    box-shadow: 0 0 0 1px var(--red-1, #07bdff) inset;
+    position: relative;
+    cursor: default;
+  }
+
+  .route-item.active .route-icon {
+    color: #fff;
+    background: var(--red-1, #07bdff);
+  }
+
+  .route-item.active .route-name {
+    color: var(--red-1, #07bdff);
+  }
+
+  .route-item.active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 20%;
+    bottom: 20%;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--red-1, #07bdff);
+  }
+
+  /* 非当前线路：右侧箭头提示可切换 */
+  .route-current {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--grey-7, #999);
+    transition: color 0.25s, transform 0.25s;
+  }
+
+  .route-item:hover .route-current {
+    color: var(--red-1, #07bdff);
+    transform: translateX(2px);
+  }
+
+  .route-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    color: var(--red-1, #07bdff);
+    background: rgba(7, 189, 255, 0.12);
+  }
+
+  .route-name {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: var(--color-default, #444);
+  }
+
+  .route-desc {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--grey-7, #888);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+  }
+</style>
